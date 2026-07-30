@@ -23,21 +23,31 @@ class DashboardStatsController extends Controller
     {
         $jobs = app(JobRepository::class);
         $metrics = app(MetricsRepository::class);
+        $queueWithMaxRuntime = $metrics->queueWithMaximumRuntime();
+        $queueWithMaxThroughput = $metrics->queueWithMaximumThroughput();
 
         return [
             'failedJobs' => $jobs->countRecentlyFailed(),
             'failedJobsPastHour' => $this->failedJobsPastHour($jobs),
             'failedJobsPastDay' => $this->failedJobsPastDay($jobs),
             'jobsPerMinute' => $metrics->jobsProcessedPerMinute(),
+            'throughput' => $metrics->throughput(),
             'pausedMasters' => $this->totalPausedMasters(),
             'periods' => [
                 'failedJobs' => config('horizon.trim.recent_failed', config('horizon.trim.failed')),
                 'recentJobs' => config('horizon.trim.recent'),
+                'completedJobs' => config('horizon.trim.completed'),
             ],
             'processes' => $this->totalProcessCount(),
             'processing' => $this->processing(),
-            'queueWithMaxRuntime' => $metrics->queueWithMaximumRuntime(),
-            'queueWithMaxThroughput' => $metrics->queueWithMaximumThroughput(),
+            'queueWithMaxRuntime' => $queueWithMaxRuntime,
+            'queueWithMaxThroughput' => $queueWithMaxThroughput,
+            'maxRuntime' => $queueWithMaxRuntime !== null
+                ? round($metrics->runtimeForQueue($queueWithMaxRuntime) / 1000, 3)
+                : null,
+            'maxThroughput' => $queueWithMaxThroughput !== null
+                ? $metrics->throughputForQueue($queueWithMaxThroughput)
+                : null,
             'recentJobs' => $jobs->countRecent(),
             'status' => $this->currentStatus(),
             'wait' => collect(app(WaitTimeCalculator::class)->calculate())->take(1),

@@ -42,8 +42,11 @@ class DashboardStatsControllerTest extends ControllerTest
         // Setup metrics data...
         $metrics = Mockery::mock(MetricsRepository::class);
         $metrics->shouldReceive('jobsProcessedPerMinute')->andReturn(1);
-        $metrics->shouldReceive('queueWithMaximumRuntime')->andReturn('default');
-        $metrics->shouldReceive('queueWithMaximumThroughput')->andReturn('default');
+        $metrics->shouldReceive('throughput')->andReturn(42);
+        $metrics->shouldReceive('queueWithMaximumRuntime')->once()->andReturn('default');
+        $metrics->shouldReceive('queueWithMaximumThroughput')->once()->andReturn('default');
+        $metrics->shouldReceive('runtimeForQueue')->once()->with('default')->andReturn(1500);
+        $metrics->shouldReceive('throughputForQueue')->once()->with('default')->andReturn(230);
         $metrics->shouldReceive('measuredJobs')->andReturn(['App\\Jobs\\A', 'App\\Jobs\\B']);
         $metrics->shouldReceive('measuredQueues')->andReturn(['default', 'reports', 'mail']);
         $this->app->instance(MetricsRepository::class, $metrics);
@@ -82,6 +85,7 @@ class DashboardStatsControllerTest extends ControllerTest
 
         $response->assertJson([
             'jobsPerMinute' => 1,
+            'throughput' => 42,
             'wait' => ['first' => 20],
             'processes' => 30,
             'processing' => true,
@@ -92,9 +96,12 @@ class DashboardStatsControllerTest extends ControllerTest
             'recentJobs' => 1,
             'queueWithMaxRuntime' => 'default',
             'queueWithMaxThroughput' => 'default',
+            'maxRuntime' => 1.5,
+            'maxThroughput' => 230,
             'periods' => [
                 'failedJobs' => 10080,
                 'recentJobs' => 60,
+                'completedJobs' => 60,
             ],
             'navigation' => [
                 'monitoring' => 3,
@@ -135,8 +142,11 @@ class DashboardStatsControllerTest extends ControllerTest
 
         $metrics = Mockery::mock(MetricsRepository::class);
         $metrics->shouldReceive('jobsProcessedPerMinute')->andReturn(0);
-        $metrics->shouldReceive('queueWithMaximumRuntime')->andReturn(null);
-        $metrics->shouldReceive('queueWithMaximumThroughput')->andReturn(null);
+        $metrics->shouldReceive('throughput')->andReturn(0);
+        $metrics->shouldReceive('queueWithMaximumRuntime')->once()->andReturn(null);
+        $metrics->shouldReceive('queueWithMaximumThroughput')->once()->andReturn(null);
+        $metrics->shouldReceive('runtimeForQueue')->never();
+        $metrics->shouldReceive('throughputForQueue')->never();
         $metrics->shouldReceive('measuredJobs')->andReturn([]);
         $metrics->shouldReceive('measuredQueues')->andReturn([]);
         $this->app->instance(MetricsRepository::class, $metrics);
@@ -150,7 +160,11 @@ class DashboardStatsControllerTest extends ControllerTest
             ->assertOk()
             ->assertJsonPath('navigation.batches', null)
             ->assertJsonPath('navigation.monitoring', 0)
-            ->assertJsonPath('navigation.metrics', 0);
+            ->assertJsonPath('navigation.metrics', 0)
+            ->assertJsonPath('queueWithMaxRuntime', null)
+            ->assertJsonPath('queueWithMaxThroughput', null)
+            ->assertJsonPath('maxRuntime', null)
+            ->assertJsonPath('maxThroughput', null);
     }
 
     public function test_navigation_batch_count_returns_exact_active_batches()
@@ -423,8 +437,11 @@ class DashboardStatsControllerTest extends ControllerTest
 
         $metrics = Mockery::mock(MetricsRepository::class);
         $metrics->shouldReceive('jobsProcessedPerMinute')->andReturn(0);
+        $metrics->shouldReceive('throughput')->andReturn(0);
         $metrics->shouldReceive('queueWithMaximumRuntime')->andReturn(null);
         $metrics->shouldReceive('queueWithMaximumThroughput')->andReturn(null);
+        $metrics->shouldReceive('runtimeForQueue')->never();
+        $metrics->shouldReceive('throughputForQueue')->never();
         $metrics->shouldReceive('measuredJobs')->andReturn([]);
         $metrics->shouldReceive('measuredQueues')->andReturn([]);
         $this->app->instance(MetricsRepository::class, $metrics);
